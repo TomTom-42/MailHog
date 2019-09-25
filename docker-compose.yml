@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+   mailhog:
+     image: portus-registry.woonoz.com:5000/woonoz/mailhog:latest
+     container_name: mailhog
+     build: .

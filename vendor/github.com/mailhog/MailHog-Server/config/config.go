@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+    "os"
 
 	"github.com/ian-kent/envconf"
 	"github.com/mailhog/MailHog-Server/monkey"
@@ -100,17 +101,35 @@ func Configure() *Config {
 	}
 
 	if len(cfg.OutgoingSMTPFile) > 0 {
-		b, err := ioutil.ReadFile(cfg.OutgoingSMTPFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		var o map[string]*OutgoingSMTP
-		err = json.Unmarshal(b, &o)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cfg.OutgoingSMTP = o
-	}
+
+    if _, error_file := os.Stat(cfg.OutgoingSMTPFile); error_file == nil {
+
+      b, err := ioutil.ReadFile(cfg.OutgoingSMTPFile)
+      if err != nil {
+        log.Fatal(err)
+      }
+
+      var o map[string]*OutgoingSMTP
+      err = json.Unmarshal(b, &o)
+
+      if err != nil {
+        log.Fatal(err)
+      }
+      cfg.OutgoingSMTP = o
+
+    } else if os.IsNotExist(error_file) {
+
+      var o map[string]*OutgoingSMTP
+
+      err := json.Unmarshal([]byte(cfg.OutgoingSMTPFile), &o)
+
+      if err != nil {
+        log.Fatal(err)
+      }
+
+      cfg.OutgoingSMTP = o
+    }
+  }
 
 	return cfg
 }

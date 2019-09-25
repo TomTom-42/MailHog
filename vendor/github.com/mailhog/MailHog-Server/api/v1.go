@@ -196,6 +196,41 @@ func (apiv1 *APIv1) download(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Based on this work : https://gadelkareem.com/2018/05/03/golang-send-mail-without-authentication-using-localhost-sendmail-or-postfix/
+func SendMail(addr string, from string, msg []byte, to []string) error {
+	r := strings.NewReplacer("\r\n", "", "\r", "", "\n", "", "%0a", "", "%0d", "")
+
+	c, err := smtp.Dial(addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	if err = c.Mail(r.Replace(from)); err != nil {
+		return err
+	}
+	for i := range to {
+		to[i] = r.Replace(to[i])
+		if err = c.Rcpt(to[i]); err != nil {
+			return err
+		}
+	}
+
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+	return c.Quit()
+}
+
 func (apiv1 *APIv1) download_part(w http.ResponseWriter, req *http.Request) {
 	id := req.URL.Query().Get(":id")
 	part := req.URL.Query().Get(":part")
@@ -317,8 +352,10 @@ func (apiv1 *APIv1) release_one(w http.ResponseWriter, req *http.Request) {
 	bytes = append(bytes, []byte("\r\n"+msg.Content.Body)...)
 
 	var auth smtp.Auth
+	var Sendmail_custom = true
 
 	if len(cfg.Username) > 0 || len(cfg.Password) > 0 {
+		Sendmail_custom = false
 		log.Printf("Found username/password, using auth mechanism: [%s]", cfg.Mechanism)
 		switch cfg.Mechanism {
 		case "CRAMMD5":
@@ -332,8 +369,13 @@ func (apiv1 *APIv1) release_one(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	err = smtp.SendMail(cfg.Host+":"+cfg.Port, auth, "nobody@"+apiv1.config.Hostname, []string{cfg.Email}, bytes)
-	if err != nil {
+	if Sendmail_custom ==true {
+		err = SendMail(cfg.Host+":"+cfg.Port, "nobody@"+apiv1.config.Hostname, bytes, []string{cfg.Email})
+	} else {
+		err = smtp.SendMail(cfg.Host+":"+cfg.Port, auth, "nobody@"+apiv1.config.Hostname, []string{cfg.Email}, bytes)
+	}
+
+  if err != nil {
 		log.Printf("Failed to release message: %s", err)
 		w.WriteHeader(500)
 		return
