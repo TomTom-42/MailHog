@@ -5,3 +5,6 @@ services:
      image: portus-registry.woonoz.com:5000/woonoz/mailhog:latest
      container_name: mailhog
      build: .
+     ports:
+     - "1025:1025"
+     - "8025:8025"
